@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SlideMakingwithMe</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎞️</text></svg>">
+</head>
+<body>
+<header>
+  <h1>SlideMaking<span>with</span>Me</h1>
+  <p class="tagline">Convert Word documents into ProPresenter slides</p>
+</header>
+
+<main>
+  <section class="card" id="form-card">
+    <div class="field">
+      <label for="media-type">Media Type</label>
+      <select id="media-type">
+        <option value="" selected disabled>Select media type…</option>
+        <option value="songs">Songs</option>
+        <option value="sermons">Sermons</option>
+      </select>
+    </div>
+
+    <div class="field hidden" id="pastor-field">
+      <label for="pastor">Pastor</label>
+      <select id="pastor">
+        <option value="" selected disabled>Select pastor…</option>
+        <option value="jon-choi">P Jon Choi</option>
+        <option value="daniel-kim">P Daniel Kim</option>
+        <option value="jon-kim">P Jon Kim</option>
+      </select>
+    </div>
+
+    <div class="field hidden" id="file-field">
+      <label for="docx-file">Word document (.docx)</label>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="docx-file" accept=".docx" hidden>
+        <p id="drop-text"><strong>Choose a file</strong> or drag it here</p>
+      </div>
+    </div>
+
+    <p class="note hidden" id="unsupported-note"></p>
+
+    <button id="convert-btn" class="hidden" disabled>Convert to ProPresenter</button>
+    <p class="error hidden" id="error-msg"></p>
+  </section>
+
+  <section class="card hidden" id="result-card">
+    <div class="result-head">
+      <h2 id="result-title"></h2>
+      <button id="download-btn">⬇ Download .pro</button>
+    </div>
+    <p class="result-sub" id="result-sub"></p>
+    <div id="preview"></div>
+  </section>
+</main>
+
+<footer>
+  <p>Runs entirely in your browser — your documents never leave your computer.</p>
+</footer>
+
+<script src="template-jonchoi.js"></script>
+<script src="convert.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
