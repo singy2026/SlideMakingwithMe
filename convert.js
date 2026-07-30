@@ -125,13 +125,18 @@ function decodeXmlEntities(s) {
     .replace(/&amp;/g, "&");
 }
 
-/* Returns the document's paragraphs as plain-text strings. */
+/* Returns the document's paragraphs as plain-text strings.
+ * Pictures and other embedded graphics are dropped, including any text they carry
+ * internally (alt text, captions, text boxes) — slides are text only. */
 function docxParagraphs(xml) {
   const paras = [];
   const pRe = /<w:p[ >][\s\S]*?<\/w:p>/g;
   let pm;
   while ((pm = pRe.exec(xml)) !== null) {
-    const inner = pm[0];
+    const inner = pm[0]
+      .replace(/<w:drawing[\s\S]*?<\/w:drawing>/g, "")
+      .replace(/<w:pict[\s\S]*?<\/w:pict>/g, "")
+      .replace(/<w:object[\s\S]*?<\/w:object>/g, "");
     let text = "";
     const runRe = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:(tab|br|cr)\b[^>]*\/>/g;
     let rm;
@@ -215,6 +220,62 @@ function buildSermonSlides(paragraphs) {
       pointNum += 1;
       slides.push(pointNum + ".\t" + t);
     }
+  }
+  return slides;
+}
+
+/* ---------------- sermon slide building (P Daniel Kim format) ---------------- */
+
+/* His documents mark every slide explicitly with "Page 1", "Page 2", … The marker
+ * itself never appears on a slide; it only tells us where slides begin. Content
+ * lines already sit one-per-paragraph, so long pages split on line boundaries. */
+
+const PAGE_MARKER_RE = /^\s*page\s*\d+\s*[.:)-]?\s*/i;
+
+function packLines(lines, max = MAX_SLIDE_CHARS) {
+  const slides = [];
+  let acc = [];
+  const accLen = () => acc.join("\n").length;
+  for (const line of lines) {
+    if (acc.length && accLen() + 1 + line.length > max) { slides.push(acc.join("\n")); acc = []; }
+    if (line.length > max) {
+      // a single over-long line: fall back to splitting inside it
+      const parts = splitVerses(line, max);
+      for (const part of parts.slice(0, -1)) {
+        if (acc.length) { slides.push(acc.join("\n")); acc = []; }
+        slides.push(part);
+      }
+      acc.push(parts[parts.length - 1]);
+    } else acc.push(line);
+  }
+  if (acc.length) slides.push(acc.join("\n"));
+  return slides;
+}
+
+function buildDanielKimSlides(paragraphs) {
+  // group paragraphs into pages, keyed off the "Page N" markers
+  const pages = [];
+  let current = null;
+  for (const raw of paragraphs) {
+    const p = raw.replace(/ /g, " ");
+    // a marker may share its paragraph with the first content line ("Page 2\nJohn 14:1-6")
+    const lines = p.split("\n");
+    for (const line of lines) {
+      if (PAGE_MARKER_RE.test(line)) {
+        const rest = line.replace(PAGE_MARKER_RE, "").trim();
+        current = [];
+        pages.push(current);
+        if (rest) current.push(rest);
+      } else if (current !== null && line.trim() !== "") {
+        current.push(line.trim());
+      }
+    }
+  }
+  // pages holding only a picture come out empty once the image is dropped
+  const slides = [];
+  for (const page of pages) {
+    if (page.length === 0) continue;
+    for (const s of packLines(page)) slides.push(s);
   }
   return slides;
 }
@@ -332,10 +393,19 @@ function buildPro(templateBytes, slides, presentationName) {
 
 /* ---------------- top-level pipeline ---------------- */
 
-async function convertSermonDocx(arrayBuffer, presentationName, templateB64) {
+/* Each pastor writes his manuscript differently, so the paragraphs -> slides step
+ * is per-format. All formats share the same ProPresenter styling template. */
+const SLIDE_BUILDERS = {
+  "jon-choi": buildSermonSlides,
+  "daniel-kim": buildDanielKimSlides,
+};
+
+async function convertSermonDocx(arrayBuffer, presentationName, templateB64, format = "jon-choi") {
+  const buildSlides = SLIDE_BUILDERS[format];
+  if (!buildSlides) throw new Error("No slide format defined for '" + format + "'.");
   const xml = await extractDocumentXml(arrayBuffer);
   const paragraphs = docxParagraphs(xml);
-  const slides = buildSermonSlides(paragraphs);
+  const slides = buildSlides(paragraphs);
   if (slides.length === 0) throw new Error("No slide content found in the document.");
   const templateBytes = Uint8Array.from(atob(templateB64), c => c.charCodeAt(0));
   const pro = buildPro(templateBytes, slides, presentationName);

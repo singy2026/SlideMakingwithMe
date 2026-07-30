@@ -19,7 +19,11 @@ const downloadBtn = document.getElementById("download-btn");
 let selectedFile = null;
 let lastResult = null; // { name, pro }
 
-const SUPPORTED = { media: "sermons", pastor: "jon-choi" };
+/* pastors whose manuscript format the converter knows, and how each is labelled */
+const PASTORS = {
+  "jon-choi": "P Jon Choi",
+  "daniel-kim": "P Daniel Kim",
+};
 
 function refresh() {
   const media = mediaType.value;
@@ -30,9 +34,10 @@ function refresh() {
   let noteText = "";
   if (media === "songs") {
     noteText = "🎵 Songs conversion is coming soon. For now, please use Sermons.";
-  } else if (isSermons && pastor.value && pastor.value !== SUPPORTED.pastor) {
-    noteText = "⏳ This pastor's template is coming soon. Currently supported: P Jon Choi.";
-  } else if (isSermons && pastor.value === SUPPORTED.pastor) {
+  } else if (isSermons && pastor.value && !PASTORS[pastor.value]) {
+    noteText = "⏳ This pastor's format is coming soon. Currently supported: "
+      + Object.values(PASTORS).join(", ") + ".";
+  } else if (isSermons && PASTORS[pastor.value]) {
     supported = true;
   }
 
@@ -84,7 +89,7 @@ convertBtn.addEventListener("click", async () => {
   try {
     const buf = await selectedFile.arrayBuffer();
     const name = selectedFile.name.replace(/\.docx$/i, "");
-    const { slides, pro } = await convertSermonDocx(buf, name, TEMPLATE_JONCHOI_B64);
+    const { slides, pro } = await convertSermonDocx(buf, name, TEMPLATE_SERMON_B64, pastor.value);
     lastResult = { name, pro };
     renderResult(name, slides);
   } catch (err) {
@@ -97,7 +102,7 @@ convertBtn.addEventListener("click", async () => {
 
 function renderResult(name, slides) {
   resultTitle.textContent = name + ".pro";
-  resultSub.textContent = slides.length + " slides · Sermon · P Jon Choi template";
+  resultSub.textContent = slides.length + " slides · Sermon · " + PASTORS[pastor.value];
   preview.innerHTML = "";
   slides.forEach((text, i) => {
     const div = document.createElement("div");
